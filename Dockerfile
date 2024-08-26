@@ -1,32 +1,44 @@
-# Use Ubuntu as the base image
-FROM ubuntu:latest
+# Use an official Ubuntu base image
+FROM ubuntu:20.04
 
-# Install necessary packages
-RUN apt-get update && \
-    apt-get install -y xfce4 xfce4-goodies tightvncserver wget && \
-    apt-get clean
+# Avoid warnings by switching to noninteractive for the build process
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Firefox as an example application
-RUN apt-get update && \
-    apt-get install -y firefox && \
-    apt-get clean
+ENV USER=root
 
-# Set up the VNC server
-RUN mkdir ~/.vnc
+# Install XFCE, VNC server, dbus-x11, and xfonts-base
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xfce4 \
+    xfce4-goodies \
+    tightvncserver \
+    dbus-x11 \
+    xfonts-base \
+    firefox \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Set a VNC password
-RUN echo "YOUR_VNC_PASSWORD" | vncpasswd -f > ~/.vnc/passwd && \
-    chmod 600 ~/.vnc/passwd
+# Setup VNC server
+RUN mkdir /root/.vnc \
+    && echo "password" | vncpasswd -f > /root/.vnc/passwd \
+    && chmod 600 /root/.vnc/passwd
 
-# Create a VNC startup script
-RUN echo '#!/bin/bash\n' > ~/.vnc/xstartup
-RUN echo 'xrdb $HOME/.Xresources' >> ~/.vnc/xstartup
-RUN echo 'startxfce4 &' >> ~/.vnc/xstartup
-RUN chmod +x ~/.vnc/xstartup
+# Create an .Xauthority file
+RUN touch /root/.Xauthority
 
-# Expose the VNC port
-EXPOSE 5900
+# Set display resolution (change as needed)
+ENV RESOLUTION=1920x1080
 
-# Set the command to start the VNC server and keep the container running
-CMD ["/bin/sh", "-c", "vncserver :1 -geometry 1280x800 -depth 24 && tail -f /dev/null"]
+# Expose VNC port
+EXPOSE 5901
 
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy a script to start the VNC server
+COPY start-vnc.sh start-vnc.sh
+RUN chmod +x start-vnc.sh
+
+# List the contents of the /app directory
+RUN ls -a /app
+
+# Specify the entrypoint
+ENTRYPOINT ["/app/start-vnc.sh"]
